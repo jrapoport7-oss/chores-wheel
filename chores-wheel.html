@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chores Wheel</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fdf6ec;
+  --card: #fff;
+  --accent: #ff6b35;
+  --teal: #4ecdc4;
+  --yellow: #ffe66d;
+  --purple: #c9b1ff;
+  --green: #5cb85c;
+  --text: #2d2d2d;
+  --muted: #999;
+  --shadow: 0 4px 24px rgba(0,0,0,0.09);
+  --radius: 20px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 20px 20px 60px;
+  background-image:
+    radial-gradient(circle at 15% 15%, #ffe0cc 0%, transparent 38%),
+    radial-gradient(circle at 85% 85%, #d0f5f2 0%, transparent 38%);
+}
+
+h1 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 2.8rem;
+  color: var(--accent);
+  text-align: center;
+  text-shadow: 3px 3px 0 #ffe0cc;
+  margin-bottom: 2px;
+}
+.subtitle {
+  text-align: center;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: .95rem;
+  margin-bottom: 26px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+  max-width: 1140px;
+  margin: 0 auto;
+}
+@media(max-width:880px){ .layout{ grid-template-columns:1fr; } }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+
+/* wheel */
+.wheel-section { display:flex; flex-direction:column; align-items:center; gap:18px; }
+.wheel-wrap { position:relative; width:340px; height:340px; }
+#wheel-canvas { border-radius:50%; box-shadow:0 8px 32px rgba(0,0,0,0.18); display:block; }
+.wheel-pointer {
+  position:absolute; top:50%; right:-16px; transform:translateY(-50%);
+  width:0; height:0;
+  border-top:20px solid transparent;
+  border-bottom:20px solid transparent;
+  border-right:36px solid var(--accent);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+  z-index:10;
+}
+.wheel-center {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:40px; height:40px; background:white; border-radius:50%;
+  border:4px solid var(--accent); z-index:10;
+  box-shadow:0 2px 8px rgba(0,0,0,0.18);
+}
+.spin-btn {
+  font-family:'Fredoka One',cursive; font-size:1.5rem; padding:13px 52px;
+  background:linear-gradient(135deg,var(--accent),#ff8c42);
+  color:white; border:none; border-radius:50px; cursor:pointer;
+  box-shadow:0 4px 16px rgba(255,107,53,.38),0 2px 0 #c94a1a;
+  transition:transform .1s,box-shadow .1s; letter-spacing:1px;
+}
+.spin-btn:hover  { transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,107,53,.5),0 2px 0 #c94a1a; }
+.spin-btn:active { transform:translateY(1px);  box-shadow:0 2px 8px rgba(255,107,53,.4),0 0 0 #c94a1a; }
+.spin-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+
+/* ── REVEAL OVERLAY ── */
+.reveal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: rgba(0,0,0,0);
+  transition: background .25s;
+}
+.reveal-overlay.active {
+  display: flex;
+}
+.reveal-overlay.lit {
+  background: rgba(0,0,0,0.78);
+}
+
+/* spotlight cone from top */
+.reveal-spotlight {
+  pointer-events: none;
+  position: fixed;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 0px solid transparent;
+  border-right: 0px solid transparent;
+  border-top: 0px solid rgba(255,235,150,0.18);
+  filter: blur(18px);
+  transition: border-width .5s ease, border-top-width .5s ease;
+  z-index: 501;
+}
+.reveal-overlay.lit .reveal-spotlight {
+  border-left-width: 340px;
+  border-right-width: 340px;
+  border-top-width: 900px;
+}
+
+/* shockwave rings */
+.shockwave {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 6px solid rgba(255,230,80,0.7);
+  pointer-events: none;
+  z-index: 502;
+  opacity: 0;
+}
+.shockwave.go {
+  animation: shockOut .7s ease-out forwards;
+}
+.shockwave:nth-child(2) { animation-delay: .12s !important; border-color: rgba(255,150,80,0.55); }
+.shockwave:nth-child(3) { animation-delay: .24s !important; border-color: rgba(200,100,255,0.45); }
+@keyframes shockOut {
+  0%   { transform:translate(-50%,-50%) scale(0.2); opacity:1; }
+  100% { transform:translate(-50%,-50%) scale(9);   opacity:0; }
+}
+
+/* card that flies in */
+.reveal-card {
+  position: relative;
+  z-index: 503;
+  text-align: center;
+  transform: scale(0.4) translateY(60px);
+  opacity: 0;
+  transition: transform .55s cubic-bezier(.175,.885,.32,1.4), opacity .35s ease;
+  padding: 0 20px;
+}
+.reveal-overlay.lit .reveal-card {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.reveal-emoji {
+  font-size: 5rem;
+  line-height: 1;
+  display: block;
+  animation: none;
+}
+.reveal-overlay.lit .reveal-emoji {
+  animation: emojiPop .6s .35s cubic-bezier(.175,.885,.32,1.5) both;
+}
+@keyframes emojiPop {
+  0%   { transform: scale(0) rotate(-20deg); }
+  60%  { transform: scale(1.3) rotate(8deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.reveal-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.4rem, 5vw, 2.6rem);
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255,220,80,0.9), 2px 3px 0 rgba(0,0,0,0.4);
+  margin: 14px 0 6px;
+  letter-spacing: 1px;
+  min-height: 3rem;
+}
+
+/* each letter animates in */
+.reveal-title .letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(30px) rotate(-8deg);
+  animation: letterIn .4s forwards cubic-bezier(.175,.885,.32,1.4);
+}
+@keyframes letterIn {
+  to { opacity:1; transform:translateY(0) rotate(0); }
+}
+
+.reveal-worth {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.2rem, 4vw, 1.9rem);
+  color: #ffe66d;
+  text-shadow: 0 0 20px rgba(255,200,0,0.8), 1px 2px 0 rgba(0,0,0,0.4);
+  margin-bottom: 6px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity .4s .7s ease, transform .4s .7s cubic-bezier(.175,.885,.32,1.4);
+}
+.reveal-overlay.lit .reveal-worth {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.reveal-tagline {
+  font-size: .95rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 28px;
+  opacity: 0;
+  transition: opacity .3s .9s;
+}
+.reveal-overlay.lit .reveal-tagline {
+  opacity: 1;
+}
+
+.reveal-done-btn {
+  padding: 14px 40px;
+  background: linear-gradient(135deg, var(--teal), #2bb5a8);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.25rem;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(78,205,196,.5), 0 2px 0 #1a8880;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .35s 1.05s, transform .35s 1.05s cubic-bezier(.175,.885,.32,1.4);
+}
+.reveal-overlay.lit .reveal-done-btn {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-done-btn:hover  { transform: translateY(-3px) !important; box-shadow: 0 8px 28px rgba(78,205,196,.6), 0 2px 0 #1a8880; }
+.reveal-done-btn:active { transform: translateY(1px)  !important; }
+
+/* floating emoji burst */
+.burst-emoji {
+  position: fixed;
+  font-size: 2rem;
+  pointer-events: none;
+  z-index: 504;
+  opacity: 0;
+  animation: burstFly 1.2s ease-out forwards;
+}
+@keyframes burstFly {
+  0%   { opacity:1; transform: translate(0,0) scale(1) rotate(0deg); }
+  100% { opacity:0; transform: translate(var(--tx), var(--ty)) scale(0.4) rotate(var(--tr)); }
+}
+
+/* wiggle on wheel-center when done spinning */
+@keyframes wiggle {
+  0%,100% { transform:translate(-50%,-50%) rotate(0); }
+  20%      { transform:translate(-50%,-50%) rotate(-12deg) scale(1.2); }
+  40%      { transform:translate(-50%,-50%) rotate(12deg)  scale(1.2); }
+  60%      { transform:translate(-50%,-50%) rotate(-8deg); }
+  80%      { transform:translate(-50%,-50%) rotate(8deg); }
+}
+.wheel-center.wiggle { animation: wiggle .6s ease; }
+
+/* session log */
+.panel-title {
+  font-family:'Fredoka One',cursive; font-size:1.2rem; color:var(--accent);
+  margin-bottom:14px; display:flex; align-items:center; gap:7px;
+}
+.session-empty { color:var(--muted); font-weight:700; font-size:.9rem; text-align:center; padding:10px 0 4px; }
+.session-list {
+  display:flex; flex-direction:column; gap:7px;
+  max-height:260px; overflow-y:auto; margin-bottom:14px;
+}
+.session-item {
+  display:flex; align-items:center; justify-content:space-between;
+  background:#f6fff6; border:1.5px solid #c8f0c8; border-radius:11px;
+  padding:8px 13px; font-size:.9rem; gap:10px;
+}
+.session-item-left  { display:flex; align-items:center; gap:9px; }
+.session-item-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.session-item-name  { font-weight:800; }
+.session-item-date  { font-size:.78rem; color:var(--muted); font-weight:600; }
+.session-item-amt   { font-family:'Fredoka One',cursive; font-size:1.05rem; color:var(--green); white-space:nowrap; }
+.session-item-del   {
+  background:none; border:none; color:#ccc; font-size:1.1rem;
+  cursor:pointer; padding:0 2px; transition:color .18s; flex-shrink:0;
+}
+.session-item-del:hover { color:var(--accent); }
+.session-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.owe-box {
+  background:linear-gradient(135deg,#e8fde8,#c8f0c8);
+  border-radius:14px; padding:10px 18px;
+  display:flex; flex-direction:column; align-items:flex-start;
+}
+.owe-label  { font-size:.8rem; font-weight:800; color:#3a7a3a; text-transform:uppercase; letter-spacing:.5px; }
+.owe-amount { font-family:'Fredoka One',cursive; font-size:2rem; color:#2a6a2a; line-height:1.1; }
+.pay-btn {
+  padding:12px 26px;
+  background:linear-gradient(135deg,var(--green),#3d9940);
+  color:white; border:none; border-radius:50px;
+  font-family:'Fredoka One',cursive; font-size:1.15rem; cursor:pointer;
+  box-shadow:0 4px 14px rgba(92,184,92,.38),0 2px 0 #2d7a2d;
+  transition:transform .1s,box-shadow .1s; white-space:nowrap;
+}
+.pay-btn:hover  { transform:translateY(-2px); box-shadow:0 6px 18px rgba(92,184,92,.5),0 2px 0 #2d7a2d; }
+.pay-btn:active { transform:translateY(1px);  box-shadow:0 2px 8px rgba(92,184,92,.4),0 0 0 #2d7a2d; }
+.pay-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+
+/* right col */
+.right-col { display:flex; flex-direction:column; gap:20px; }
+
+/* chore list */
+.chore-list { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+.chore-item {
+  display:flex; flex-direction:column;
+  background:#f9f5ff; border-radius:13px; padding:9px 12px;
+  border:2px solid transparent; transition:border-color .2s; gap:6px;
+}
+.chore-item:hover { border-color:var(--purple); }
+.chore-row1 { display:flex; align-items:center; gap:9px; }
+.chore-color-dot { width:13px; height:13px; border-radius:50%; flex-shrink:0; }
+.chore-name-input {
+  flex:1; border:none; background:transparent;
+  font-family:'Nunito',sans-serif; font-size:.93rem; font-weight:800;
+  color:var(--text); outline:none; min-width:0;
+}
+.chore-dollar-wrap {
+  display:flex; align-items:center;
+  background:white; border:2px solid #e0d5f5; border-radius:8px;
+  padding:3px 7px; gap:2px; width:74px; flex-shrink:0;
+}
+.dollar-sign { color:#4caf50; font-weight:800; font-size:.95rem; }
+.chore-amount-input {
+  width:44px; border:none; background:transparent;
+  font-family:'Nunito',sans-serif; font-size:.93rem; font-weight:800;
+  color:#2a7a2a; outline:none; text-align:right;
+}
+.chore-amount-input::placeholder { color:#bbb; }
+.remove-btn {
+  background:none; border:none; color:#ccc; font-size:1.1rem;
+  cursor:pointer; padding:0 2px; line-height:1; transition:color .18s; flex-shrink:0;
+}
+.remove-btn:hover { color:var(--accent); }
+
+/* probability row */
+.chore-row2 { display:flex; align-items:center; gap:8px; padding:0 2px; }
+.prob-label { font-size:.75rem; font-weight:800; color:var(--muted); white-space:nowrap; }
+.prob-slider {
+  flex:1; -webkit-appearance:none; height:5px; border-radius:3px;
+  outline:none; cursor:pointer;
+}
+.prob-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+  background:var(--accent); cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.2);
+}
+.prob-slider::-moz-range-thumb {
+  width:16px; height:16px; border-radius:50%;
+  background:var(--accent); border:none; cursor:pointer;
+}
+.prob-val { font-family:'Fredoka One',cursive; font-size:.85rem; color:var(--accent); width:20px; text-align:right; flex-shrink:0; }
+.prob-pct { font-size:.75rem; color:var(--muted); font-weight:700; width:38px; text-align:right; flex-shrink:0; }
+
+.add-chore-row { display:flex; gap:7px; flex-wrap:wrap; }
+.add-chore-input {
+  flex:1; min-width:90px; padding:9px 13px;
+  border:2px solid #e0d5f5; border-radius:12px;
+  font-family:'Nunito',sans-serif; font-size:.88rem; font-weight:700;
+  outline:none; transition:border-color .2s; background:white;
+}
+.add-chore-input:focus { border-color:var(--purple); }
+.add-amount-wrap {
+  display:flex; align-items:center;
+  background:white; border:2px solid #e0d5f5; border-radius:12px;
+  padding:0 9px; gap:2px; width:74px; flex-shrink:0;
+}
+.add-amount-input {
+  width:48px; border:none; background:transparent;
+  font-family:'Nunito',sans-serif; font-size:.88rem; font-weight:800;
+  color:#2a7a2a; outline:none; text-align:right;
+}
+.add-btn {
+  padding:9px 16px; background:var(--purple); color:white; border:none;
+  border-radius:12px; font-family:'Fredoka One',cursive; font-size:.95rem;
+  cursor:pointer; transition:transform .1s,background .2s; flex-shrink:0;
+}
+.add-btn:hover { background:#b89dff; transform:translateY(-1px); }
+
+/* payment history */
+.pay-history-list { display:flex; flex-direction:column; gap:7px; max-height:220px; overflow-y:auto; }
+.pay-history-item {
+  background:#fffbe6; border:1.5px solid #ffe082;
+  border-radius:11px; padding:9px 13px;
+  display:flex; flex-direction:column; gap:3px;
+}
+.pay-history-header { display:flex; justify-content:space-between; align-items:center; }
+.pay-history-date  { font-size:.8rem; color:#9a7000; font-weight:800; }
+.pay-history-total { font-family:'Fredoka One',cursive; font-size:1.15rem; color:#7a5000; }
+.pay-history-chores { font-size:.78rem; color:#a08000; font-weight:600; line-height:1.4; }
+.pay-history-empty { color:var(--muted); font-weight:700; font-size:.9rem; text-align:center; padding:10px 0; }
+
+/* confetti */
+.confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:999; overflow:hidden; }
+.confetto { position:absolute; opacity:0; animation:fall linear forwards; }
+@keyframes fall {
+  0%   { opacity:1; transform:translateY(-20px) rotate(0deg); }
+  100% { opacity:0; transform:translateY(110vh) rotate(720deg); }
+}
+</style>
+</head>
+<body>
+
+<h1>🧹 Chores Wheel</h1>
+<p class="subtitle">Spin it. Do it. Get paid.</p>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <div class="card wheel-section">
+      <div class="wheel-wrap">
+        <canvas id="wheel-canvas" width="340" height="340"></canvas>
+        <div class="wheel-pointer"></div>
+        <div class="wheel-center"></div>
+      </div>
+      <button class="spin-btn" id="spinBtn" onclick="spin()">SPIN!</button>
+    </div>
+
+    <!-- Session log -->
+    <div class="card">
+      <div class="panel-title">📋 This Pay Period</div>
+      <div class="session-list" id="sessionList"></div>
+      <div class="session-footer">
+        <div class="owe-box">
+          <div class="owe-label">You owe Landon</div>
+          <div class="owe-amount" id="oweAmount">$0.00</div>
+        </div>
+        <button class="pay-btn" id="payBtn" onclick="payLandon()" disabled>💵 Pay Landon!</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+
+    <div class="card">
+      <div class="panel-title">🗒️ Chores, Pay &amp; Probability</div>
+      <div class="chore-list" id="choreList"></div>
+      <div class="add-chore-row">
+        <input class="add-chore-input" id="newChoreName" placeholder="New chore…" maxlength="30"
+               onkeydown="if(event.key==='Enter')addChore()">
+        <div class="add-amount-wrap">
+          <span class="dollar-sign">$</span>
+          <input class="add-amount-input" id="newChoreAmount" type="number" placeholder="0" min="0" step="0.25"
+                 onkeydown="if(event.key==='Enter')addChore()">
+        </div>
+        <button class="add-btn" onclick="addChore()">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="panel-title">💰 Payment History</div>
+      <div class="pay-history-list" id="payHistoryList"></div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- REVEAL OVERLAY -->
+<div class="reveal-overlay" id="revealOverlay" onclick="overlayClickOutside(event)">
+  <div class="reveal-spotlight"></div>
+  <div class="shockwave" id="sw1"></div>
+  <div class="shockwave" id="sw2"></div>
+  <div class="shockwave" id="sw3"></div>
+  <div class="reveal-card" id="revealCard">
+    <span class="reveal-emoji" id="revealEmoji">🧹</span>
+    <div class="reveal-title" id="revealTitle"></div>
+    <div class="reveal-worth" id="revealWorth"></div>
+    <div class="reveal-tagline">Landon's chore — get to it! 💪</div>
+    <button class="reveal-done-btn" onclick="markDone()">✅ Done! Log it!</button>
+  </div>
+</div>
+
+<div class="confetti-wrap" id="confettiWrap"></div>
+
+<script>
+const COLORS = [
+  '#ff6b35','#4ecdc4','#ffe66d','#c9b1ff','#a8e6cf',
+  '#ff8fab','#ffc947','#74b9ff','#fd79a8','#55efc4',
+  '#fdcb6e','#81ecec','#e17055','#6c5ce7','#00b894'
+];
+
+let chores = JSON.parse(localStorage.getItem('cw_chores') || 'null') || [
+  { name:'Vacuum',         amount:2.00, weight:5 },
+  { name:'Dishes',         amount:1.50, weight:5 },
+  { name:'Take out trash', amount:1.00, weight:5 },
+  { name:'Clean bathroom', amount:3.00, weight:3 },
+  { name:'Sweep floors',   amount:1.50, weight:5 },
+  { name:'Wipe counters',  amount:1.00, weight:5 },
+];
+
+let session    = JSON.parse(localStorage.getItem('cw_session')    || '[]');
+let payHistory = JSON.parse(localStorage.getItem('cw_payhistory') || '[]');
+let spinning   = false;
+let currentResult = null;
+let currentRotation = 0;
+
+function save() {
+  localStorage.setItem('cw_chores',     JSON.stringify(chores));
+  localStorage.setItem('cw_session',    JSON.stringify(session));
+  localStorage.setItem('cw_payhistory', JSON.stringify(payHistory));
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function fmtDateShort(d) {
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+function totalWeight() {
+  return chores.reduce((s,c) => s + (c.weight||1), 0);
+}
+
+function chorePercent(i) {
+  const tw = totalWeight();
+  if (!tw) return 0;
+  return Math.round(((chores[i].weight||1) / tw) * 100);
+}
+
+function sessionTotal() {
+  return session.reduce((s,e) => s + e.amount, 0);
+}
+
+// ── Chore list render ────────────────────────────────────────────────────────
+function renderChoreList() {
+  const list = document.getElementById('choreList');
+  list.innerHTML = '';
+
+  if (!chores.length) {
+    list.innerHTML = '<div style="color:#bbb;font-weight:700;text-align:center;padding:10px 0;">No chores yet!</div>';
+    return;
+  }
+
+  chores.forEach((c, i) => {
+    const color = COLORS[i % COLORS.length];
+    const w     = c.weight || 1;
+    const pct   = chorePercent(i);
+    const trackPct = ((w - 1) / 9 * 100).toFixed(1);
+
+    const div = document.createElement('div');
+    div.className = 'chore-item';
+    div.innerHTML = `
+      <div class="chore-row1">
+        <div class="chore-color-dot" style="background:${color}"></div>
+        <input class="chore-name-input" value="${esc(c.name)}"
+               onchange="updateChore(${i},'name',this.value)" maxlength="30">
+        <div class="chore-dollar-wrap">
+          <span class="dollar-sign">$</span>
+          <input class="chore-amount-input" type="number" value="${c.amount.toFixed(2)}"
+                 min="0" step="0.25" onchange="updateChore(${i},'amount',this.value)">
+        </div>
+        <button class="remove-btn" onclick="removeChore(${i})">✕</button>
+      </div>
+      <div class="chore-row2">
+        <span class="prob-label">Chance:</span>
+        <input class="prob-slider" type="range" min="1" max="10" value="${w}"
+               id="slider-${i}"
+               style="background:linear-gradient(to right,${color} 0%,${color} ${trackPct}%,#e0d5f5 ${trackPct}%,#e0d5f5 100%)"
+               oninput="liveWeight(${i},this.value,'${color}')">
+        <span class="prob-val" id="pv-${i}">${w}</span>
+        <span class="prob-pct" id="pp-${i}">${pct}%</span>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function liveWeight(i, val, color) {
+  chores[i].weight = Math.max(1, Math.min(10, parseInt(val) || 1));
+  save();
+
+  const trackPct = ((chores[i].weight - 1) / 9 * 100).toFixed(1);
+  const sl = document.getElementById('slider-' + i);
+  if (sl) sl.style.background = `linear-gradient(to right,${color} 0%,${color} ${trackPct}%,#e0d5f5 ${trackPct}%,#e0d5f5 100%)`;
+
+  chores.forEach((_, j) => {
+    const pvEl = document.getElementById('pv-' + j);
+    const ppEl = document.getElementById('pp-' + j);
+    if (pvEl) pvEl.textContent = chores[j].weight || 1;
+    if (ppEl) ppEl.textContent = chorePercent(j) + '%';
+  });
+
+  drawWheel(currentRotation % (Math.PI * 2));
+}
+
+function updateChore(i, field, val) {
+  if (field === 'amount') chores[i].amount = Math.max(0, parseFloat(val) || 0);
+  else chores[i].name = val.trim() || chores[i].name;
+  save();
+  drawWheel(currentRotation % (Math.PI * 2));
+}
+
+function removeChore(i) {
+  chores.splice(i, 1);
+  save();
+  renderChoreList();
+  drawWheel(currentRotation % (Math.PI * 2));
+  hideReveal(); currentResult = null;
+}
+
+function addChore() {
+  const nameEl = document.getElementById('newChoreName');
+  const amtEl  = document.getElementById('newChoreAmount');
+  const name   = nameEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+  const amount = Math.max(0, parseFloat(amtEl.value) || 0);
+  chores.push({ name, amount, weight: 5 });
+  nameEl.value = '';
+  amtEl.value  = '';
+  nameEl.focus();
+  save();
+  renderChoreList();
+  drawWheel(currentRotation % (Math.PI * 2));
+}
+
+// ── Draw wheel ───────────────────────────────────────────────────────────────
+function drawWheel(rotation) {
+  const canvas = document.getElementById('wheel-canvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, r = W/2 - 6;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!chores.length) {
+    ctx.fillStyle = '#f0e8ff';
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#bbb';
+    ctx.font = 'bold 16px Nunito';
+    ctx.textAlign = 'center';
+    ctx.fillText('Add chores', cx, cy-8);
+    ctx.fillText('to get started!', cx, cy+12);
+    return;
+  }
+
+  const tw = totalWeight();
+  let angle = rotation - Math.PI/2;
+
+  chores.forEach((chore, i) => {
+    const sliceAngle = (chore.weight / tw) * Math.PI * 2;
+    const color = COLORS[i % COLORS.length];
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, angle + sliceAngle);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle + sliceAngle / 2);
+    const maxR = r - 18;
+    const fs   = chores.length > 8 ? 10 : 12;
+    const label  = chore.name.length > 15 ? chore.name.slice(0,14) + '…' : chore.name;
+    const amtLbl = chore.amount > 0 ? `$${chore.amount.toFixed(2)}` : '';
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(0,0,0,0.72)';
+    ctx.font = `bold ${fs}px Nunito`;
+    ctx.fillText(label, maxR, amtLbl ? -3 : 4);
+
+    if (amtLbl) {
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = `bold ${fs-1}px Nunito`;
+      ctx.fillText(amtLbl, maxR, fs+1);
+    }
+    ctx.restore();
+
+    angle += sliceAngle;
+  });
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+}
+
+// ── Weighted pick ────────────────────────────────────────────────────────────
+function weightedPick() {
+  const tw = totalWeight();
+  let rand = Math.random() * tw;
+  for (let i = 0; i < chores.length; i++) {
+    rand -= chores[i].weight;
+    if (rand <= 0) return i;
+  }
+  return chores.length - 1;
+}
+
+// ── Spin ─────────────────────────────────────────────────────────────────────
+function spin() {
+  if (spinning || !chores.length) return;
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  hideReveal(); currentResult = null;
+
+  const targetIndex = weightedPick();
+  const tw = totalWeight();
+
+  let cumAngle = 0;
+  for (let i = 0; i < targetIndex; i++) cumAngle += (chores[i].weight / tw) * Math.PI * 2;
+  const sliceAngle    = (chores[targetIndex].weight / tw) * Math.PI * 2;
+  const sliceMidAngle = cumAngle + sliceAngle / 2;
+
+  // pointer at right (0), wheel offset -PI/2, so we need rotation such that
+  // (sliceMidAngle - PI/2 + rotation) mod 2PI == 0
+  const extraSpins = (Math.floor(Math.random() * 5) + 7) * Math.PI * 2;
+  const needed     = (Math.PI/2 - sliceMidAngle + Math.PI*4) % (Math.PI*2);
+  const curMod     = currentRotation % (Math.PI*2);
+  const delta      = (needed - curMod + Math.PI*2) % (Math.PI*2);
+  const targetRotation = currentRotation + extraSpins + delta;
+
+  const startRotation = currentRotation;
+  const startTime     = performance.now();
+  const duration      = 4200 + Math.random() * 1400;
+
+  function easeOut(t) { return 1 - Math.pow(1-t, 4); }
+
+  initTick(currentRotation);
+
+  function animate(now) {
+    const elapsed  = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const rot      = startRotation + (targetRotation - startRotation) * easeOut(progress);
+    currentRotation = rot;
+    tickIfCrossedSlice(rot, startRotation, targetRotation, progress);
+    drawWheel(rot % (Math.PI*2));
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      spinning = false;
+      document.getElementById('spinBtn').disabled = false;
+      currentResult = { ...chores[targetIndex], index: targetIndex };
+      showResult(currentResult);
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// chore emojis for reveal
+const CHORE_EMOJIS = {
+  vacuum: '🧹', dish: '🍽️', trash: '🗑️', bathroom: '🚿', sweep: '🧹',
+  wipe: '🧽', mop: '🪣', laundry: '👕', clean: '✨', wash: '🫧',
+  fold: '👕', dust: '🪥', window: '🪟', garden: '🌱', lawn: '🌿',
+  default: '🧹'
+};
+
+function getChoreEmoji(name) {
+  const n = name.toLowerCase();
+  for (const [key, emoji] of Object.entries(CHORE_EMOJIS)) {
+    if (n.includes(key)) return emoji;
+  }
+  return CHORE_EMOJIS.default;
+}
+
+function showResult(chore) {
+  playBell();
+  const overlay   = document.getElementById('revealOverlay');
+  const titleEl   = document.getElementById('revealTitle');
+  const worthEl   = document.getElementById('revealWorth');
+  const emojiEl   = document.getElementById('revealEmoji');
+  const color     = COLORS[chore.index % COLORS.length];
+
+  emojiEl.textContent = getChoreEmoji(chore.name);
+  worthEl.textContent = chore.amount > 0
+    ? `💰 Worth $${chore.amount.toFixed(2)}!`
+    : 'No pay on this one 😬';
+
+  // build letter-by-letter title
+  titleEl.innerHTML = '';
+  const chars = chore.name.split('');
+  chars.forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'letter';
+    span.textContent = ch === ' ' ? '\u00a0' : ch;
+    span.style.animationDelay = (0.45 + i * 0.06) + 's';
+    span.style.color = color;
+    titleEl.appendChild(span);
+  });
+
+  // wiggle wheel center
+  const wc = document.querySelector('.wheel-center');
+  wc.classList.remove('wiggle');
+  void wc.offsetWidth;
+  wc.classList.add('wiggle');
+
+  // show overlay, then fire shockwaves & burst
+  overlay.classList.add('active');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('lit');
+      fireShockwaves();
+      emojiBurst(chore.index);
+    });
+  });
+}
+
+function fireShockwaves() {
+  ['sw1','sw2','sw3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+  });
+}
+
+function emojiBurst(choreIndex) {
+  const emojis = ['⭐','✨','💥','🎉','🌟','💫','🎊','🔥'];
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement('div');
+    el.className = 'burst-emoji';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    const angle = (Math.PI * 2 / 10) * i + Math.random() * 0.4;
+    const dist  = 120 + Math.random() * 160;
+    el.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    el.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    el.style.setProperty('--tr', (Math.random() * 360 - 180) + 'deg');
+    el.style.left = '50vw';
+    el.style.top  = '45vh';
+    el.style.animationDelay = (Math.random() * 0.2) + 's';
+    el.style.animationDuration = (0.8 + Math.random() * 0.5) + 's';
+    el.style.fontSize = (1.5 + Math.random() * 1.5) + 'rem';
+    document.getElementById('confettiWrap').appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+  }
+}
+
+function hideReveal() {
+  const overlay = document.getElementById('revealOverlay');
+  overlay.classList.remove('lit');
+  setTimeout(() => overlay.classList.remove('active'), 300);
+}
+
+function overlayClickOutside(e) {
+  // clicking the dark backdrop (not the card) dismisses without marking done
+  if (e.target === document.getElementById('revealOverlay')) {
+    hideReveal();
+    currentResult = null;
+  }
+}
+
+function markDone() {
+  if (!currentResult) return;
+  const entry = {
+    chore:  currentResult.name,
+    amount: currentResult.amount || 0,
+    color:  COLORS[currentResult.index % COLORS.length],
+    date:   new Date().toISOString()
+  };
+  session.push(entry);
+  save();
+  renderSession();
+  hideReveal();
+  currentResult = null;
+  if (entry.amount > 0) confetti();
+}
+
+// ── Session log ───────────────────────────────────────────────────────────────
+function renderSession() {
+  const list   = document.getElementById('sessionList');
+  const oweEl  = document.getElementById('oweAmount');
+  const payBtn = document.getElementById('payBtn');
+  const total  = sessionTotal();
+
+  oweEl.textContent = `$${total.toFixed(2)}`;
+  payBtn.disabled   = session.length === 0;
+
+  if (!session.length) {
+    list.innerHTML = '<div class="session-empty">No chores done yet — spin the wheel!</div>';
+    return;
+  }
+
+  list.innerHTML = session.map((e, i) => `
+    <div class="session-item">
+      <div class="session-item-left">
+        <div class="session-item-dot" style="background:${e.color}"></div>
+        <div>
+          <div class="session-item-name">${esc(e.chore)}</div>
+          <div class="session-item-date">${fmtDateShort(e.date)}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="session-item-amt">+$${e.amount.toFixed(2)}</div>
+        <button class="session-item-del" onclick="removeSessionItem(${i})" title="Remove">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function removeSessionItem(i) {
+  session.splice(i, 1);
+  save();
+  renderSession();
+}
+
+// ── Pay Landon ────────────────────────────────────────────────────────────────
+function payLandon() {
+  if (!session.length) return;
+  const total = sessionTotal();
+  payHistory.unshift({
+    date:   new Date().toISOString(),
+    total,
+    chores: session.map(e => e.chore)
+  });
+  if (payHistory.length > 100) payHistory.pop();
+  session = [];
+  save();
+  renderSession();
+  renderPayHistory();
+  confetti();
+}
+
+// ── Payment history ───────────────────────────────────────────────────────────
+function renderPayHistory() {
+  const el = document.getElementById('payHistoryList');
+  if (!payHistory.length) {
+    el.innerHTML = '<div class="pay-history-empty">No payments yet.</div>';
+    return;
+  }
+  el.innerHTML = payHistory.map(p => `
+    <div class="pay-history-item">
+      <div class="pay-history-header">
+        <span class="pay-history-date">📅 ${fmtDate(p.date)}</span>
+        <span class="pay-history-total">$${p.total.toFixed(2)}</span>
+      </div>
+      <div class="pay-history-chores">${p.chores.map(esc).join(' · ')}</div>
+    </div>
+  `).join('');
+}
+
+// ── Confetti ──────────────────────────────────────────────────────────────────
+function confetti() {
+  const wrap   = document.getElementById('confettiWrap');
+  wrap.innerHTML = '';
+  const colors = ['#ff6b35','#4ecdc4','#ffe66d','#c9b1ff','#a8e6cf','#ff8fab'];
+  for (let i = 0; i < 70; i++) {
+    const el   = document.createElement('div');
+    el.className = 'confetto';
+    const size = 8 + Math.random() * 9;
+    el.style.cssText = `
+      left:${Math.random()*100}vw; top:-20px;
+      width:${size}px; height:${size}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>.5?'50%':'3px'};
+      animation-duration:${1.6+Math.random()*2}s;
+      animation-delay:${Math.random()*.5}s;
+    `;
+    wrap.appendChild(el);
+  }
+  setTimeout(() => { wrap.innerHTML = ''; }, 4500);
+}
+
+
+// ── AUDIO ENGINE (Web Audio API) ─────────────────────────────────────────────
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Tick: short bandpass click, like a ratchet pawl
+function playTick(speedFactor) {
+  const ctx = getAudioCtx();
+  const t   = ctx.currentTime;
+
+  // Noise burst filtered to a click
+  const bufLen = ctx.sampleRate * 0.025;
+  const buf    = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+  const data   = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+
+  // Bandpass centered around 1800 Hz for a crisp tick
+  const bp = ctx.createBiquadFilter();
+  bp.type            = 'bandpass';
+  bp.frequency.value = 1800;
+  bp.Q.value         = 3.5;
+
+  // Volume envelope
+  const gain = ctx.createGain();
+  const vol  = Math.min(0.55, 0.25 + speedFactor * 0.3);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.022);
+
+  src.connect(bp);
+  bp.connect(gain);
+  gain.connect(ctx.destination);
+  src.start(t);
+  src.stop(t + 0.025);
+}
+
+// NYSE opening bell: rich multi-partial bell tone
+function playBell() {
+  const ctx  = getAudioCtx();
+  const t    = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, t);
+  master.gain.linearRampToValueAtTime(0.7, t + 0.01);
+  master.connect(ctx.destination);
+
+  // Bell partials: [frequency multiplier, relative amplitude, decay seconds]
+  const partials = [
+    [1.000, 1.00, 3.2],   // fundamental ~880 Hz
+    [2.756, 0.55, 2.4],   // minor third partial (bell characteristic)
+    [5.404, 0.30, 1.8],
+    [8.933, 0.18, 1.2],
+    [1.500, 0.40, 2.8],   // perfect fifth
+    [3.999, 0.22, 1.5],
+  ];
+  const fundamental = 880;
+
+  partials.forEach(([mult, amp, decay]) => {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type            = 'sine';
+    osc.frequency.value = fundamental * mult;
+
+    // sharp attack, long exponential decay
+    gain.gain.setValueAtTime(amp, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+
+    osc.connect(gain);
+    gain.connect(master);
+    osc.start(t);
+    osc.stop(t + decay + 0.05);
+  });
+
+  // Second strike 0.18s later (like the NYSE double-strike)
+  setTimeout(() => {
+    const t2 = getAudioCtx().currentTime;
+    partials.forEach(([mult, amp, decay]) => {
+      const osc2  = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type            = 'sine';
+      osc2.frequency.value = fundamental * mult;
+      gain2.gain.setValueAtTime(amp * 0.65, t2);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, t2 + decay * 0.7);
+      osc2.connect(gain2);
+      gain2.connect(master);
+      osc2.start(t2);
+      osc2.stop(t2 + decay * 0.7 + 0.05);
+    });
+  }, 180);
+}
+
+// ── Tick tracking for spin animation ─────────────────────────────────────────
+// We accumulate total rotation and fire a tick every time we cross a slice boundary.
+let tickAccumulator  = 0;   // how many radians spun since last frame
+let tickBudget       = 0;   // leftover from last slice boundary
+let lastTickRot      = 0;   // raw rotation at last frame
+
+function initTick(startRot) {
+  lastTickRot  = startRot;
+  tickBudget   = 0;
+}
+
+function tickIfCrossedSlice(currentRot, startRot, targetRot, progress) {
+  if (!chores.length) return;
+  const tw = totalWeight();
+
+  // radians moved this frame
+  const delta = currentRot - lastTickRot;
+  lastTickRot  = currentRot;
+  if (delta <= 0) return;
+
+  tickBudget += delta;
+
+  // How wide is one average slice?
+  const sliceRad = (Math.PI * 2) / chores.length;
+
+  while (tickBudget >= sliceRad) {
+    tickBudget -= sliceRad;
+    // speedFactor: 1 at full speed, 0 at stop — derived from eased progress derivative
+    const speedFactor = Math.max(0.05, 1 - progress);
+    playTick(speedFactor);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderChoreList();
+drawWheel(0);
+renderSession();
+renderPayHistory();
+</script>
+</body>
+</html>
